@@ -1,6 +1,20 @@
-# Private study file: must never be pushed.
-VIVA_NOTES.md
-
 # Python build artefacts.
 __pycache__/
 *.pyc
+
+*.pdf
+
+# Viva review and planning documents (for reference, not part of project)
+VIVA_REVIEW.md
+EV_Trip_Planner_Plan_v2.pdf
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
