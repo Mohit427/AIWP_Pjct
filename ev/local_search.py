@@ -22,6 +22,7 @@ from ev.charger_placement import (
     SimulatedAnnealingResult,
     evaluate_charger_set,
 )
+from ev.memory_bounded import random_walk
 
 
 # -------------------------------------------------------------------------
@@ -460,8 +461,6 @@ def simulated_annealing(
 # -------------------------------------------------------------------------
 # Algorithm Registry (for easy import in main.py)
 # -------------------------------------------------------------------------
-# Note: Random Walk is implemented by Rohiit (separate module)
-# Import it from there when available: from ev.rohiit_algorithms import random_walk
 
 LOCAL_SEARCH_ALGORITHMS = {
     "steepest_ascent": steepest_ascent_hill_climbing,
@@ -470,4 +469,5 @@ LOCAL_SEARCH_ALGORITHMS = {
     "random_restart_first_choice": lambda **kw: random_restart_hill_climbing(**kw, use_first_choice=True),
     "simulated_annealing_exp": lambda **kw: simulated_annealing(**kw, cooling_schedule="exponential"),
     "simulated_annealing_log": lambda **kw: simulated_annealing(**kw, cooling_schedule="logarithmic"),
+    "random_walk": random_walk,
 }

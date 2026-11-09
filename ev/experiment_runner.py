@@ -27,6 +27,7 @@ from ev.local_search import (
     first_choice_hill_climbing,
     random_restart_hill_climbing,
     simulated_annealing,
+    random_walk,
     LOCAL_SEARCH_ALGORITHMS,
 )
 from ev.maps import RoadMap, generate_sized_map, toy_map, corridor_map
@@ -214,7 +215,7 @@ def run_experiment(
             "Random-Restart First-Choice (R=20)": lambda problem, **kw: random_restart_hill_climbing(problem, **kw, use_first_choice=True, num_restarts=20),
             "Simulated Annealing (Exp)": lambda problem, **kw: simulated_annealing(problem, **kw, cooling_schedule="exponential"),
             "Simulated Annealing (Log)": lambda problem, **kw: simulated_annealing(problem, **kw, cooling_schedule="logarithmic"),
-            # "Random Walk": random_walk,  # Implemented by Rohiit - add when available
+            "Random Walk": random_walk,
         }
 
     print(f"\n{'='*60}")
