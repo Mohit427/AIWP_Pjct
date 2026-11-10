@@ -1,4 +1,4 @@
-"""EV trip planner: shared model, maps, metrics and search algorithms."""
+"""EV trip planner: shared model, maps, metrics, and search algorithms."""
 
 from ev.model import (
     MAX_BATTERY_CAP,
@@ -21,6 +21,7 @@ from ev.maps import (
     corridor_problem,
     generate_map,
     generate_sized_map,
+    seeded_start_goal_pairs,
     GeneratedMap,
     TOY_START,
     TOY_GOAL,
@@ -44,6 +45,37 @@ from ev.uninformed import (
     dfs,
     iddfs,
     ALGORITHMS as UNINFORMED_ALGORITHMS,
+)
+
+from ev.heuristics import (
+    GraphBounds,
+    precompute_graph_bounds,
+    h0_zero,
+    h1_straight_line_time,
+    h2_distance_plus_forced_charge,
+    make_heuristics,
+    make_problem_heuristics,
+    HEURISTIC_NAMES,
+)
+
+from ev.informed import (
+    ucs,
+    greedy_best_first,
+    astar,
+    astar_h0,
+    astar_h1,
+    astar_h2,
+    ALGORITHMS as INFORMED_ALGORITHMS,
+)
+
+from ev.memory_bounded import (
+    ida_star,
+    dfbb,
+    dfbb_unbounded,
+    random_walk,
+    run_memory_bounded_experiments,
+    summarize_memory_bounded,
+    ALGORITHMS as MEMORY_BOUNDED_ALGORITHMS,
 )
 
 from ev.charger_placement import (
@@ -98,6 +130,7 @@ __all__ = [
     "corridor_problem",
     "generate_map",
     "generate_sized_map",
+    "seeded_start_goal_pairs",
     "GeneratedMap",
     "TOY_START",
     "TOY_GOAL",
@@ -117,6 +150,29 @@ __all__ = [
     "dfs",
     "iddfs",
     "UNINFORMED_ALGORITHMS",
+    # Heuristics & Informed search
+    "GraphBounds",
+    "precompute_graph_bounds",
+    "h0_zero",
+    "h1_straight_line_time",
+    "h2_distance_plus_forced_charge",
+    "make_heuristics",
+    "make_problem_heuristics",
+    "HEURISTIC_NAMES",
+    "ucs",
+    "greedy_best_first",
+    "astar",
+    "astar_h0",
+    "astar_h1",
+    "astar_h2",
+    "INFORMED_ALGORITHMS",
+    # Memory-bounded search
+    "ida_star",
+    "dfbb",
+    "dfbb_unbounded",
+    "run_memory_bounded_experiments",
+    "summarize_memory_bounded",
+    "MEMORY_BOUNDED_ALGORITHMS",
     # Charger placement
     "Trip",
     "ChargerPlacementProblem",

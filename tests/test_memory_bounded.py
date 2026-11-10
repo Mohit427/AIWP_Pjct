@@ -1,7 +1,9 @@
-"""Unit tests for memory-bounded search (IDA*, DFBB), Random Walk, and route visualization."""
+"""Unit tests, edge-case tests, and visualization tests for IDA*, DFBB, Random Walk, and viz."""
 
 from __future__ import annotations
 
+import contextlib
+import io
 import os
 import tempfile
 import unittest
@@ -15,10 +17,12 @@ from ev.charger_placement import (
 )
 from ev.informed import astar, ucs
 from ev.local_search import steepest_ascent_hill_climbing
-from ev.maps import MAP_SIZES, corridor_map, corridor_problem, generate_sized_map, toy_problem
+from ev.maps import MAP_SIZES, corridor_map, corridor_problem, generate_sized_map, toy_map, toy_problem
 from ev.memory_bounded import dfbb, dfbb_unbounded, ida_star, random_walk
-from ev.metrics import SOLVED, measure
-from ev.visualization import (
+from ev.metrics import CUTOFF, NO_SOLUTION, SOLVED, measure
+from ev.model import Action, Problem, RoadMap
+from ev.uninformed import bfs, dfs, iddfs
+from ev.viz import (
     format_placement_terminal,
     format_playback_terminal,
     format_route_terminal,
@@ -26,6 +30,7 @@ from ev.visualization import (
     render_placement_comparison,
     render_route_map,
     render_search_playback,
+    visualize,
 )
 
 
@@ -73,34 +78,107 @@ class TestMemoryBoundedAndRandomWalk(unittest.TestCase):
         res_dfbb = measure(dfbb, prob)
 
         self.assertLess(res_ida.peak_frontier, res_ast.peak_frontier)
+        self.assertLess(res_dfbb.peak_frontier, res_ast.peak_frontier)
         self.assertIsNotNone(res_ida.peak_memory_kb)
         self.assertIsNotNone(res_dfbb.peak_memory_kb)
 
-    def test_random_walk_baseline(self) -> None:
-        """Random walk executes the requested steps, records trace history, and returns a valid state."""
+    def test_random_walk_placement_and_route(self) -> None:
+        """Random walk supports both ChargerPlacementProblem and route-finding Problem."""
         rm = corridor_map()
         candidates = [n for n in rm.coords if n not in rm.chargers][:8]
         trips = [Trip("Chennai", "Bengaluru", 6), Trip("Vellore", "Hosur", 5)]
-        problem = ChargerPlacementProblem(
+        placement_prob = ChargerPlacementProblem(
             road_map=rm,
             candidates=candidates,
             num_chargers=3,
             sample_trips=trips,
         )
-        res = random_walk(problem, max_iterations=25, trace=True, seed=42)
+        res = random_walk(placement_prob, max_iterations=25, trace=True, seed=42)
         self.assertEqual(res.algorithm, "Random Walk")
         self.assertEqual(res.iterations, 25)
-        self.assertTrue(problem.is_valid_state(res.best_state))
+        self.assertTrue(placement_prob.is_valid_state(res.best_state))
         self.assertEqual(len(res.trace_history), 26)
         self.assertAlmostEqual(
-            res.best_value, evaluate_charger_set(problem, res.best_state), places=5
+            res.best_value, evaluate_charger_set(placement_prob, res.best_state), places=5
         )
+
+        # Also test route-finding mode via measure() per CONTRACT.md Rule 5
+        route_res = measure(random_walk, toy_problem())
+        self.assertIn(route_res.status, (SOLVED, CUTOFF))
+        self.assertIsNotNone(route_res.peak_memory_kb)
+
+    def test_contract_trace_and_limits(self) -> None:
+        """Verify CONTRACT.md rules: trace prints one 'step' per expansion, limits return CUTOFF."""
+        for solver in (ida_star, dfbb):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                res = solver(toy_problem(), trace=True)
+            self.assertEqual(output.getvalue().count("step"), res.nodes_expanded)
+
+            cut = solver(corridor_problem(), max_expansions=3)
+            self.assertEqual(cut.status, CUTOFF)
+            self.assertLessEqual(cut.nodes_expanded, 3)
+
+
+class TestEdgeCases(unittest.TestCase):
+    """Wednesday (11 Nov) edge-case tests:
+      1. Start equals goal
+      2. Goal unreachable
+      3. Battery too small
+      4. No chargers on the route
+    """
+
+    def test_start_equals_goal(self) -> None:
+        """When start == destination, solvers return SOLVED with 0 actions and 0 minutes."""
+        prob = Problem(toy_map(), "S", "S", start_battery=2, battery_cap=3)
+        for solver in (bfs, dfs, iddfs, ucs, astar, ida_star, dfbb):
+            res = solver(prob)
+            self.assertEqual(res.status, SOLVED)
+            self.assertEqual(res.path, [])
+            self.assertEqual(res.total_minutes, 0)
+            self.assertEqual(res.num_actions, 0)
+
+    def test_goal_unreachable(self) -> None:
+        """When destination is in a disconnected graph component, solvers return NO_SOLUTION."""
+        rm = RoadMap("disconnected")
+        rm.add_node("A", 0, 0)
+        rm.add_node("B", 20, 0)
+        rm.add_node("Island", 200, 200)
+        rm.add_road("A", "B", 25, 25, 1)
+        prob = Problem(rm, "A", "Island", start_battery=5, battery_cap=10)
+        for solver in (bfs, dfs, iddfs, ucs, astar, ida_star, dfbb):
+            res = solver(prob)
+            self.assertEqual(res.status, NO_SOLUTION)
+            self.assertFalse(res.found)
+            self.assertIsNone(res.total_minutes)
+
+    def test_battery_too_small(self) -> None:
+        """When battery cannot cover the very first road and no charger is at start."""
+        rm = RoadMap("tight_battery")
+        rm.add_node("Start", 0, 0)
+        rm.add_node("Goal", 80, 0)
+        rm.add_road("Start", "Goal", 90, 60, 3)
+        prob = Problem(rm, "Start", "Goal", start_battery=2, battery_cap=2)
+        for solver in (bfs, dfs, iddfs, ucs, astar, ida_star, dfbb):
+            res = solver(prob)
+            self.assertEqual(res.status, NO_SOLUTION)
+            self.assertFalse(res.found)
+
+    def test_no_chargers_on_route(self) -> None:
+        """When all chargers on the corridor are removed and starting battery cannot reach goal."""
+        rm = corridor_map()
+        rm.chargers.clear()
+        prob = Problem(rm, "Chennai", "Bengaluru", start_battery=4, battery_cap=10)
+        for solver in (bfs, dfs, iddfs, ucs, astar, ida_star, dfbb):
+            res = solver(prob)
+            self.assertEqual(res.status, NO_SOLUTION)
+            self.assertFalse(res.found)
 
 
 class TestVisualization(unittest.TestCase):
-    """Test route map renderer, search playback, and placement comparison views."""
+    """Test route map renderer, search playback, placement comparison, and CONTRACT.md visualize()."""
 
-    def test_route_map_and_renderers(self) -> None:
+    def test_route_map_and_playback_renderers(self) -> None:
         """Verify reconstruct_route, terminal formatters, and matplotlib PNG rendering."""
         prob = corridor_problem()
         res = astar(prob)
@@ -117,16 +195,9 @@ class TestVisualization(unittest.TestCase):
         self.assertIn("SEARCH PLAYBACK", term_play)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            route_png = os.path.join(tmpdir, "route_map.png")
-            play_png = os.path.join(tmpdir, "playback.png")
-            fig1 = render_route_map(prob, res, save_path=route_png)
-            fig2 = render_search_playback(prob, res, num_snapshots=4, save_path=play_png)
-            plt.close(fig1)
-            plt.close(fig2)
-            self.assertTrue(os.path.isfile(route_png))
-            self.assertGreater(os.path.getsize(route_png), 1000)
-            self.assertTrue(os.path.isfile(play_png))
-            self.assertGreater(os.path.getsize(play_png), 1000)
+            saved = visualize(prob, {"A*": res, "IDA*": ida_star(prob)}, save_dir=tmpdir)
+            self.assertTrue(saved["route_map"].is_file())
+            self.assertTrue(saved["search_playback"].is_file())
 
     def test_placement_comparison_renderer(self) -> None:
         """Verify charger placement before-and-after terminal and matplotlib views."""

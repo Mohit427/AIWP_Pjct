@@ -1,0 +1,37 @@
+MEMORY-BOUNDED SEARCH EXPERIMENT SUMMARY (IDA*, DFBB, DFBB-unbounded)
+
+     map  cap        algorithm  solved  no_sol  cutoff  minutes  expanded  frontier  time(ms)  mem(KB)
+--------  ---  ---------------  ------  ------  ------  -------  --------  --------  --------  -------
+     toy    3             DFBB       1       0       0     70.0       4.0       5.0      0.06      5.9
+     toy    3  DFBB(unbounded)       1       0       0     70.0       4.0       5.0      0.04      6.2
+     toy    3             IDA*       1       0       0     70.0      13.0       1.0      0.19      6.0
+corridor   10             DFBB       1       0       0    437.0     618.0      44.0      3.18     35.4
+corridor   10  DFBB(unbounded)       1       0       0    437.0     563.0      85.0      2.97     39.1
+corridor   10             IDA*       1       0       0    437.0    1173.0       6.0      9.24     32.2
+   small    4             DFBB       9       1       0    168.4      90.1      24.3      0.42     15.0
+   small    4  DFBB(unbounded)       9       1       0    168.4      86.6      24.8      0.42     15.7
+   small    4             IDA*       9       1       0    168.4     287.2       2.8      2.22     12.2
+   small    6             DFBB      10       0       0    149.5     128.3      27.3      0.66     16.8
+   small    6  DFBB(unbounded)      10       0       0    149.5     143.4      32.5      0.73     19.3
+   small    6             IDA*      10       0       0    149.5     290.6       3.5      2.36     12.4
+   small   10             DFBB      10       0       0    106.1     110.9      23.6      0.64     14.0
+   small   10  DFBB(unbounded)      10       0       0    106.1     167.7      36.8      0.92     22.1
+   small   10             IDA*      10       0       0    106.1     139.5       3.0      1.19      9.5
+  medium    4             DFBB       6       4       0    458.2     808.2      55.8      3.68     39.7
+  medium    4  DFBB(unbounded)       6       4       0    458.2     810.8      68.3      3.54     45.0
+  medium    4             IDA*       6       4       0    458.2    2684.3       4.8     20.92     34.0
+  medium    6             DFBB       7       3       0    368.0    2182.1      71.1     10.24     49.7
+  medium    6  DFBB(unbounded)       7       3       0    368.0    2208.1      90.0     10.21     57.5
+  medium    6             IDA*       7       3       0    368.0    2425.0       5.3     19.02     35.4
+  medium   10             DFBB      10       0       0    360.5    4593.8      78.5     21.54     69.1
+  medium   10  DFBB(unbounded)      10       0       0    360.5    6542.1     124.8     31.40     80.1
+  medium   10             IDA*      10       0       0    360.5    3633.6       6.2     28.68     42.8
+   large    4             DFBB       1       9       0    531.0    1336.0      66.0      6.30     42.9
+   large    4  DFBB(unbounded)       1       9       0    531.0     804.0      77.0      3.69     41.4
+   large    4             IDA*       1       9       0    531.0    3414.0       7.0     26.24     38.9
+   large    6             DFBB       6       4       0    775.2   15932.0     158.7     77.34    110.2
+   large    6  DFBB(unbounded)       6       4       0    775.2   10429.8     164.3     48.21    109.1
+   large    6             IDA*       6       4       0    775.2   19234.2      10.7    158.68     78.4
+   large   10             DFBB      10       0       0    640.5   41478.2     215.5    220.25    157.1
+   large   10  DFBB(unbounded)      10       0       0    640.5   40051.6     223.2    203.86    173.4
+   large   10             IDA*      10       0       0    640.5   18755.0      11.5    157.73    102.0
