@@ -94,7 +94,8 @@ def dfs(
     Complete: yes on this finite space, because the explored set stops it
     from looping and every reachable state is eventually expanded.
     Optimal: no. It returns the first path it stumbles on.
-    Time: O(V + E). Memory: O(V), because of the explored set.
+    Time: O(V + E). Memory: O(V + E), the explored set plus a stack that can
+    hold duplicates.
 
     An explicit stack is used so that long paths cannot hit Python's recursion
     limit. A state is marked explored when popped, not when pushed; marking

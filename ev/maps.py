@@ -341,6 +341,34 @@ def generate_map(
     raise RuntimeError(f"no feasible map after {MAX_GENERATION_ATTEMPTS} attempts")
 
 
+def seeded_start_goal_pairs(
+    road_map: RoadMap, count: int, seed: int, battery_cap: int, start_battery: int
+) -> list[tuple[str, str]]:
+    """Return `count` different start-goal pairs, each feasible at the given battery.
+
+    Experiments call this once per map, at the most generous battery setting,
+    and reuse the pairs at every cap. Each cap then faces identical trips, so
+    a difference between caps comes from the cap and not from easier trips.
+    """
+    rng = random.Random(seed)
+    names = sorted(road_map.coords)
+    pairs: list[tuple[str, str]] = []
+    for _attempt in range(MAX_GENERATION_ATTEMPTS):
+        start = rng.choice(names)
+        others = sorted(
+            (name for name in names if name != start),
+            key=lambda name: (-road_map.straight_line_km(start, name), name),
+        )
+        destination = rng.choice(others[: max(1, len(others) // 2)])
+        if (start, destination) not in pairs and is_feasible(
+            road_map, start, destination, start_battery, battery_cap
+        ):
+            pairs.append((start, destination))
+            if len(pairs) == count:
+                return pairs
+    raise RuntimeError(f"found only {len(pairs)} of {count} feasible pairs")
+
+
 def generate_sized_map(size: str, battery_cap: int = MAX_BATTERY_CAP) -> GeneratedMap:
     """Return the standard map for 'small', 'medium' or 'large' using its fixed seed."""
     return generate_map(MAP_SIZES[size], DEFAULT_SEEDS[size], battery_cap)

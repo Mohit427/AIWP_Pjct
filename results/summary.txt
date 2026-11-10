@@ -1,0 +1,38 @@
+EXPERIMENT SUMMARY (generated from results/experiments.csv)
+Averages cover only 'common' trips: solved by all three at that setting.
+
+   map  cap  algorithm  solved  no_sol  cutoff  common  actions  minutes  expanded  frontier  time(ms)  mem(KB)
+------  ---  ---------  ------  ------  ------  ------  -------  -------  --------  --------  --------  -------
+ small    4        BFS       9       1       0       9      8.0    177.2      37.1      10.7      0.07     10.9
+ small    4        DFS       9       1       0       9     10.1    214.3      25.4      13.7      0.05      9.4
+ small    4      IDDFS       9       1       0       9      8.0    177.2    1193.0      14.4      1.61      9.0
+ small    6        BFS      10       0       0      10      6.8    157.5      42.7      14.6      0.08     13.2
+ small    6        DFS      10       0       0      10     11.2    240.3      27.6      17.9      0.06     10.3
+ small    6      IDDFS      10       0       0      10      6.8    157.5    2259.7      15.5      3.31      8.2
+ small   10        BFS      10       0       0      10      4.1    112.2      30.5      20.2      0.06     12.3
+ small   10        DFS      10       0       0      10     10.4    240.2      26.9      21.0      0.05     10.7
+ small   10      IDDFS      10       0       0      10      4.1    112.2     228.7      14.7      0.48      6.2
+medium    4        BFS       6       4       0       5     24.8    437.8     141.8      13.8      0.35     28.4
+medium    4        DFS       6       4       0       5     31.0    547.4     142.6      23.4      0.40     28.9
+medium    4      IDDFS       5       4       1       5     24.8    437.8  235208.2      27.6    448.17     22.9
+medium    6        BFS       7       3       0       3     16.0    289.7     196.0      21.0      0.88     38.8
+medium    6        DFS       7       3       0       3     19.3    346.7     172.7      24.3      0.74     33.3
+medium    6      IDDFS       3       3       4       3     16.0    289.7   77312.0      24.7    343.80     17.8
+medium   10        BFS      10       0       0       6     16.3    324.3     268.8      32.2      1.09     55.0
+medium   10        DFS      10       0       0       6     84.7   1446.0     208.2      57.8      0.85     48.4
+medium   10      IDDFS       6       0       4       6     16.3    324.3  220928.7      26.5    874.90     18.0
+ large    4        BFS       1       9       0       1     28.0    568.0     196.0      15.0      0.25     39.0
+ large    4        DFS       1       9       0       1     39.0    740.0      87.0      23.0      0.18     23.3
+ large    4      IDDFS       1       4       5       1     28.0    568.0  692566.0      34.0   2567.86     24.8
+ large    6        BFS       6       4       0       0        -        -         -         -         -        -
+ large    6        DFS       6       4       0       0        -        -         -         -         -        -
+ large    6      IDDFS       0       4       6       0        -        -         -         -         -        -
+ large   10        BFS      10       0       0       0        -        -         -         -         -        -
+ large   10        DFS      10       0       0       0        -        -         -         -         -        -
+ large   10      IDDFS       0       0      10       0        -        -         -         -         -        -
+
+Total runs: 270. Cutoffs: 30.
+BFS and IDDFS both solved 44 trips; same action count on 44.
+BFS cutoffs: 0
+DFS cutoffs: 0
+IDDFS cutoffs: 30

@@ -1,3 +1,7 @@
+# Private study files: must never be pushed.
+VIVA_NOTES.md
+STUDY_GUIDE.pdf
+
 # Python build artefacts.
 __pycache__/
 *.pyc
