@@ -1,4 +1,4 @@
-"""Unit tests, edge-case tests, and visualization tests for IDA*, DFBB, Random Walk, and viz."""
+"""Unit tests, edge-case tests, visualization tests, and main.py integration tests."""
 
 from __future__ import annotations
 
@@ -20,18 +20,21 @@ from ev.local_search import steepest_ascent_hill_climbing
 from ev.maps import MAP_SIZES, corridor_map, corridor_problem, generate_sized_map, toy_map, toy_problem
 from ev.memory_bounded import dfbb, dfbb_unbounded, ida_star, random_walk
 from ev.metrics import CUTOFF, NO_SOLUTION, SOLVED, measure
-from ev.model import Action, Problem, RoadMap
+from ev.model import Problem, RoadMap
 from ev.uninformed import bfs, dfs, iddfs
 from ev.viz import (
     format_placement_terminal,
     format_playback_terminal,
     format_route_terminal,
+    generate_all_visuals,
     reconstruct_route,
+    render_memory_comparison,
     render_placement_comparison,
     render_route_map,
     render_search_playback,
     visualize,
 )
+import main as main_mod
 
 
 class TestMemoryBoundedAndRandomWalk(unittest.TestCase):
@@ -102,7 +105,6 @@ class TestMemoryBoundedAndRandomWalk(unittest.TestCase):
             res.best_value, evaluate_charger_set(placement_prob, res.best_state), places=5
         )
 
-        # Also test route-finding mode via measure() per CONTRACT.md Rule 5
         route_res = measure(random_walk, toy_problem())
         self.assertIn(route_res.status, (SOLVED, CUTOFF))
         self.assertIsNotNone(route_res.peak_memory_kb)
@@ -175,32 +177,53 @@ class TestEdgeCases(unittest.TestCase):
             self.assertFalse(res.found)
 
 
-class TestVisualization(unittest.TestCase):
-    """Test route map renderer, search playback, placement comparison, and CONTRACT.md visualize()."""
+class TestVisualizationAndMainIntegration(unittest.TestCase):
+    """Test route map, playback, placement comparison, memory comparison, and main.py wiring."""
 
-    def test_route_map_and_playback_renderers(self) -> None:
+    def test_route_map_playback_and_memory_renderers(self) -> None:
         """Verify reconstruct_route, terminal formatters, and matplotlib PNG rendering."""
         prob = corridor_problem()
-        res = astar(prob)
-        recon = reconstruct_route(prob, res)
+        res_ast = measure(astar, prob)
+        res_ida = measure(ida_star, prob)
+        res_dfbb = measure(dfbb, prob)
+        recon = reconstruct_route(prob, res_ast)
         self.assertEqual(recon.steps[0].node, "Chennai")
         self.assertEqual(recon.steps[-1].node, "Bengaluru")
-        self.assertEqual(recon.steps[-1].cumulative_minutes, res.total_minutes)
+        self.assertEqual(recon.steps[-1].cumulative_minutes, res_ast.total_minutes)
 
-        term_route = format_route_terminal(prob, res)
+        term_route = format_route_terminal(prob, res_ast)
         self.assertIn("Chennai -> Bengaluru", term_route)
-        self.assertIn(str(res.total_minutes), term_route)
+        self.assertIn(str(res_ast.total_minutes), term_route)
 
-        term_play = format_playback_terminal(prob, res, max_steps=10)
+        term_play = format_playback_terminal(prob, res_ast, max_steps=10)
         self.assertIn("SEARCH PLAYBACK", term_play)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            saved = visualize(prob, {"A*": res, "IDA*": ida_star(prob)}, save_dir=tmpdir)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                saved = visualize(
+                    prob,
+                    {"A*": res_ast, "IDA*": res_ida, "DFBB": res_dfbb},
+                    save_dir=tmpdir,
+                )
             self.assertTrue(saved["route_map"].is_file())
             self.assertTrue(saved["search_playback"].is_file())
 
-    def test_placement_comparison_renderer(self) -> None:
-        """Verify charger placement before-and-after terminal and matplotlib views."""
+            mem_png = os.path.join(tmpdir, "memory_cmp.png")
+            fig_m = render_memory_comparison(
+                {"corridor": {"A*": res_ast, "IDA*": res_ida, "DFBB": res_dfbb}},
+                save_path=mem_png,
+            )
+            plt.close(fig_m)
+            self.assertTrue(os.path.isfile(mem_png))
+            self.assertGreater(os.path.getsize(mem_png), 1000)
+
+    def test_placement_comparison_and_main_integration(self) -> None:
+        """Verify charger placement comparison renderer and main.py available_algorithms()."""
+        algos = main_mod.available_algorithms()
+        for name in ("BFS", "DFS", "IDDFS", "UCS", "Greedy", "A*", "IDA*", "DFBB"):
+            self.assertIn(name, algos)
+
         rm = corridor_map()
         candidates = [n for n in rm.coords if n not in rm.chargers][:8]
         trips = [Trip("Chennai", "Bengaluru", 6), Trip("Arakkonam", "Hosur", 5)]

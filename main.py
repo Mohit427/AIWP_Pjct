@@ -3,6 +3,7 @@
     python main.py                 interactive menu
     python main.py --demo          non-interactive tour of the features
     python main.py --experiments   run the experiments and save to results/
+    python main.py --visuals       generate all visualization figures in results/visuals/
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from pathlib import Path
 from ev.maps import (
     DEFAULT_SEEDS,
     MAP_SIZES,
+    corridor_map,
     corridor_problem,
     generate_map,
     generate_sized_map,
@@ -63,7 +65,7 @@ def _optional_module(name: str):
 
 
 def available_algorithms() -> dict:
-    """Return every algorithm present, as a dictionary of name to solver."""
+    """Return every route-finding algorithm present, as a dictionary of name to solver."""
     algorithms = dict(UNINFORMED_ALGORITHMS)
     for module_name in OPTIONAL_ALGORITHM_MODULES:
         module = _optional_module(module_name)
@@ -72,6 +74,9 @@ def available_algorithms() -> dict:
         extra = getattr(module, "ALGORITHMS", None)
         if isinstance(extra, dict):
             algorithms.update(extra)
+        elif hasattr(module, "LOCAL_SEARCH_ALGORITHMS"):
+            # ev.local_search provides charger-placement solvers (LOCAL_SEARCH_ALGORITHMS)
+            continue
         else:
             print(f"WARNING: {module_name} has no ALGORITHMS dictionary (see CONTRACT.md)")
     return algorithms
@@ -200,6 +205,116 @@ def print_comparison(problem: Problem, results: dict[str, Result]) -> None:
     )
 
 
+def compare_charger_placement(visualize_result: bool = True) -> dict[str, float]:
+    """Run local search charger placement methods against brute-force optimum and print table."""
+    cp_mod = _optional_module("ev.charger_placement")
+    ls_mod = _optional_module("ev.local_search")
+    if cp_mod is None or ls_mod is None:
+        return {}
+
+    rm = corridor_map()
+    rm.chargers.clear()
+    rm.add_charger("Kanchipuram", 25, 20)
+    rm.add_charger("Tiruvannamalai", 25, 20)
+    rm.add_charger("Palamaner", 25, 20)
+
+    candidates = [
+        n
+        for n in sorted(rm.coords)
+        if n not in rm.chargers and n not in ("Chennai", "Bengaluru")
+    ][:10]
+    trips = [
+        cp_mod.Trip("Chennai", "Bengaluru", 5),
+        cp_mod.Trip("Bengaluru", "Chennai", 5),
+        cp_mod.Trip("Chennai", "Hosur", 5),
+        cp_mod.Trip("Arakkonam", "Bengaluru", 5),
+        cp_mod.Trip("Chengalpattu", "Kolar", 5),
+        cp_mod.Trip("Tindivanam", "Bengaluru", 5),
+    ]
+    problem = cp_mod.ChargerPlacementProblem(
+        road_map=rm,
+        candidates=candidates,
+        num_chargers=3,
+        sample_trips=trips,
+        start_battery=5,
+    )
+    bf = cp_mod.brute_force_optimum(problem)
+    init_state = problem.initial_state(seed=2)
+    before_val = cp_mod.evaluate_charger_set(problem, init_state)
+
+    methods = {
+        "Steepest-Ascent HC": lambda: ls_mod.steepest_ascent_hill_climbing(
+            problem, initial_state=init_state, trace=True, seed=2
+        ),
+        "First-Choice HC": lambda: ls_mod.first_choice_hill_climbing(
+            problem, initial_state=init_state, max_iterations=100, seed=2
+        ),
+        "Random-Restart HC (R=10)": lambda: ls_mod.random_restart_hill_climbing(
+            problem, num_restarts=10, max_iterations_per_run=50, seed=2
+        ),
+        "Simulated Annealing (Exp)": lambda: ls_mod.simulated_annealing(
+            problem, initial_state=init_state, cooling_schedule="exponential", max_iterations=150, seed=2
+        ),
+        "Simulated Annealing (Log)": lambda: ls_mod.simulated_annealing(
+            problem, initial_state=init_state, cooling_schedule="logarithmic", max_iterations=150, seed=2
+        ),
+    }
+    if "random_walk" in getattr(ls_mod, "LOCAL_SEARCH_ALGORITHMS", {}):
+        methods["Random Walk (Baseline)"] = lambda: ls_mod.LOCAL_SEARCH_ALGORITHMS["random_walk"](
+            problem, initial_state=init_state, max_iterations=50, trace=True, seed=2
+        )
+
+    print("\n" + "=" * 70)
+    print(
+        f"CHARGER PLACEMENT COMPARISON (N={problem.num_chargers} sites out of "
+        f"M={len(candidates)} candidates)"
+    )
+    print(
+        f"Initial Avg Trip Time: {before_val:.2f} min | "
+        f"Brute-Force True Optimum: {bf.optimal_value:.2f} min "
+        f"({sorted(bf.optimal_state)})"
+    )
+    print("=" * 70)
+
+    rows = []
+    scores: dict[str, float] = {}
+    best_res_obj = None
+    for label, fn in methods.items():
+        res = fn()
+        scores[label] = res.best_value
+        if best_res_obj is None or res.best_value < best_res_obj.best_value:
+            best_res_obj = res
+        gap = res.best_value - bf.optimal_value
+        rows.append([
+            label,
+            f"{res.best_value:.2f}",
+            f"{gap:+.2f}",
+            res.iterations,
+            f"{res.runtime_s * 1000:.2f}",
+            ", ".join(sorted(res.best_state)),
+        ])
+
+    print_table(
+        ["local search method", "avg min", "gap vs opt", "iters", "time(ms)", "chosen sites"],
+        rows,
+    )
+
+    if visualize_result and best_res_obj is not None:
+        viz = _optional_module("ev.viz")
+        if viz is not None and hasattr(viz, "render_placement_comparison"):
+            out_dir = RESULTS_DIR / "visuals"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            save_path = out_dir / "charger_placement_corridor.png"
+            fig = viz.render_placement_comparison(
+                problem, init_state, best_res_obj, save_path=str(save_path)
+            )
+            import matplotlib.pyplot as plt
+            plt.close(fig)
+            print(f"Saved charger placement comparison visual to {save_path}")
+
+    return scores
+
+
 VERDICT_CRITERIA = (
     ("fewest minutes", lambda r: r.total_minutes),
     ("fewest actions", lambda r: r.num_actions),
@@ -233,13 +348,25 @@ def verdict(algorithms: dict) -> None:
     print("=" * 70)
     rows = []
     unsolved = []
+    results_by_map: dict[str, dict[str, Result]] = {}
     for scenario in VERDICT_SCENARIOS:
-        results = compare(build_problem(scenario), algorithms)
+        prob = build_problem(scenario)
+        results = compare(prob, algorithms)
+        results_by_map[scenario] = results
         rows.append([scenario] + [winners(results, key) for _label, key in VERDICT_CRITERIA])
         unsolved += [f"{scenario}/{n}: {r.status}" for n, r in results.items() if r.status != SOLVED]
     print_table(["sub-problem"] + [label for label, _key in VERDICT_CRITERIA], rows)
     print("Not eligible to win: " + ("; ".join(unsolved) if unsolved else "none"))
-    print("This is provisional until every team algorithm is present.")
+
+    viz = _optional_module("ev.viz")
+    if viz is not None and hasattr(viz, "render_memory_comparison"):
+        out_dir = RESULTS_DIR / "visuals"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        mem_file = out_dir / "ida_dfbb_memory_comparison.png"
+        fig = viz.render_memory_comparison(results_by_map, save_path=str(mem_file))
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+        print(f"Saved memory comparison visual to {mem_file}")
 
 
 # --------------------------------------------------------------------------
@@ -399,11 +526,28 @@ def _visualize_if_available(problem: Problem, results: dict[str, Result]) -> Non
         viz.visualize(problem, results)
 
 
+def _generate_all_visuals_action() -> None:
+    """Generate all four visualization screens into results/visuals/."""
+    viz = _optional_module("ev.viz")
+    if viz is not None and hasattr(viz, "generate_all_visuals"):
+        paths = viz.generate_all_visuals()
+        for label, path in paths.items():
+            print(f"  [{label}] -> {path}")
+
+
 def menu() -> None:
     """Run the interactive menu until the user quits or input ends."""
     algorithms = available_algorithms()
-    actions = ["show map", "run one algorithm with trace", "compare all algorithms",
-               "run experiments", "final verdict", "quit"]
+    actions = [
+        "show map",
+        "run one algorithm with trace",
+        "compare all algorithms",
+        "compare charger placement (local search)",
+        "generate all visuals",
+        "run experiments",
+        "final verdict",
+        "quit",
+    ]
     try:
         while True:
             print("\nEV TRIP PLANNER")
@@ -419,6 +563,10 @@ def menu() -> None:
                 results = compare(problem, algorithms)
                 print_comparison(problem, results)
                 _visualize_if_available(problem, results)
+            elif action == "compare charger placement (local search)":
+                compare_charger_placement(visualize_result=True)
+            elif action == "generate all visuals":
+                _generate_all_visuals_action()
             elif action == "run experiments":
                 run_experiments()
             else:
@@ -437,6 +585,8 @@ def demo() -> None:
     show_map(corridor_problem())
     results = compare(corridor_problem(), algorithms)
     print_comparison(corridor_problem(), results)
+    _visualize_if_available(corridor_problem(), results)
+    compare_charger_placement(visualize_result=True)
     verdict(algorithms)
 
 
@@ -446,6 +596,8 @@ def main() -> None:
         demo()
     elif "--experiments" in sys.argv[1:]:
         run_experiments()
+    elif "--visuals" in sys.argv[1:]:
+        _generate_all_visuals_action()
     else:
         menu()
 

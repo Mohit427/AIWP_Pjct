@@ -8,7 +8,9 @@ from ev.viz import (
     format_placement_terminal,
     format_playback_terminal,
     format_route_terminal,
+    generate_all_visuals,
     reconstruct_route,
+    render_memory_comparison,
     render_placement_comparison,
     render_route_map,
     render_search_playback,
@@ -25,5 +27,7 @@ __all__ = [
     "render_route_map",
     "render_search_playback",
     "render_placement_comparison",
+    "render_memory_comparison",
     "visualize",
+    "generate_all_visuals",
 ]

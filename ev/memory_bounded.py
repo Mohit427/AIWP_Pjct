@@ -268,6 +268,12 @@ def dfbb(
 
     best_cost: float = float("inf") if initial_bound is None else float(initial_bound)
     best_path: list[Action] | None = None
+    if initial_bound is None and use_greedy_bound:
+        from ev.informed import greedy_best_first
+        g_res = greedy_best_first(problem, trace=False, max_expansions=min(1000, max_expansions), heuristic=h_fn)
+        if g_res.found and g_res.total_minutes is not None:
+            best_cost = float(g_res.total_minutes)
+            best_path = list(g_res.path)
     best_g: dict[State, int] = {start: 0}
 
     def can_prune(nf: int) -> bool:
