@@ -9,6 +9,10 @@ Provides:
     Screen 2 step-by-step search playback from `result.expanded_order`.
   - `render_placement_comparison(problem, initial_state, result, save_path=None, show=False)`:
     Screen 3 charger placement before-and-after view and convergence trace.
+  - `render_memory_comparison(results_by_map, save_path=None, show=False)`:
+    Screen 4 memory & peak-frontier comparison across UCS, A*, DFBB, and IDA*.
+  - `generate_all_visuals(save_dir=None, show=False)`: generates all four
+    standard visual screens into `results/visuals/`.
   - Clean terminal formatters (`format_route_terminal`, `format_playback_terminal`,
     `format_placement_terminal`).
 """
@@ -27,6 +31,7 @@ from matplotlib.patches import FancyArrowPatch
 from ev.charger_placement import (
     ChargerPlacementProblem,
     LocalSearchResult,
+    Trip,
     evaluate_charger_set,
 )
 from ev.metrics import SOLVED, Result
@@ -844,6 +849,142 @@ def render_placement_comparison(
     return fig
 
 
+def render_memory_comparison(
+    results_by_map: dict[str, dict[str, Result]],
+    save_path: str | None = None,
+    show: bool = False,
+) -> plt.Figure:
+    """Render Screen 4: IDA* and DFBB Memory & Frontier comparison across maps.
+
+    Compares the optimal route-finding algorithms (UCS, A*, DFBB, IDA*) on
+    Peak Frontier Size (left panel) and Peak Memory in KB (right panel).
+    """
+    map_names = list(results_by_map.keys())
+    target_algos = [
+        a
+        for a in ("UCS", "A*", "DFBB", "IDA*")
+        if any(a in results_by_map[m] for m in map_names)
+    ]
+    if not target_algos and map_names:
+        target_algos = list(next(iter(results_by_map.values())).keys())
+
+    palette = {
+        "UCS": "#64748b",
+        "A*": "#2563eb",
+        "DFBB": "#f59e0b",
+        "IDA*": "#16a34a",
+    }
+
+    fig, (ax_front, ax_mem) = plt.subplots(1, 2, figsize=(13.5, 5.4), dpi=150)
+    fig.patch.set_facecolor("#f8fafc")
+    for ax in (ax_front, ax_mem):
+        ax.set_facecolor("#ffffff")
+
+    n_maps = len(map_names)
+    n_algos = max(1, len(target_algos))
+    bar_w = 0.78 / n_algos
+    x_positions = list(range(n_maps))
+
+    for i, algo in enumerate(target_algos):
+        offsets = [x + (i - (n_algos - 1) / 2.0) * bar_w for x in x_positions]
+        frontiers = [
+            results_by_map[m][algo].peak_frontier
+            if algo in results_by_map[m]
+            else 0
+            for m in map_names
+        ]
+        memories = [
+            (results_by_map[m][algo].peak_memory_kb or 0.0)
+            if algo in results_by_map[m]
+            else 0.0
+            for m in map_names
+        ]
+        color = palette.get(algo, "#0284c7")
+
+        bars_f = ax_front.bar(
+            offsets,
+            frontiers,
+            width=bar_w * 0.92,
+            color=color,
+            edgecolor="#0f172a",
+            linewidth=0.8,
+            label=algo,
+        )
+        for rect, val in zip(bars_f, frontiers):
+            if val > 0:
+                ax_front.text(
+                    rect.get_x() + rect.get_width() / 2.0,
+                    rect.get_height() + 1.5,
+                    str(val),
+                    ha="center",
+                    va="bottom",
+                    fontsize=7.5,
+                    fontweight="bold",
+                    color="#1e293b",
+                )
+
+        bars_m = ax_mem.bar(
+            offsets,
+            memories,
+            width=bar_w * 0.92,
+            color=color,
+            edgecolor="#0f172a",
+            linewidth=0.8,
+            label=algo,
+        )
+        for rect, val in zip(bars_m, memories):
+            if val > 0:
+                ax_mem.text(
+                    rect.get_x() + rect.get_width() / 2.0,
+                    rect.get_height() + 2.0,
+                    f"{val:.0f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=7.5,
+                    fontweight="bold",
+                    color="#1e293b",
+                )
+
+    ax_front.set_xticks(x_positions)
+    ax_front.set_xticklabels(map_names, fontsize=9.5, fontweight="bold")
+    ax_front.set_ylabel("Peak Frontier Size (# states)", fontsize=9.5)
+    ax_front.set_title(
+        "Peak Frontier Size: Queue/Heap (UCS, A*) vs. Path Stack (DFBB, IDA*)",
+        fontsize=10.5,
+        fontweight="bold",
+        color="#0f172a",
+    )
+    ax_front.grid(True, axis="y", linestyle="--", alpha=0.35)
+    ax_front.legend(loc="upper left", fontsize=8.5)
+
+    ax_mem.set_xticks(x_positions)
+    ax_mem.set_xticklabels(map_names, fontsize=9.5, fontweight="bold")
+    ax_mem.set_ylabel("Peak Traced Memory (KB)", fontsize=9.5)
+    ax_mem.set_title(
+        "Peak Memory Footprint (KB) Across Map Sizes",
+        fontsize=10.5,
+        fontweight="bold",
+        color="#0f172a",
+    )
+    ax_mem.grid(True, axis="y", linestyle="--", alpha=0.35)
+    ax_mem.legend(loc="upper left", fontsize=8.5)
+
+    fig.suptitle(
+        "Memory-Bounded Informed Search Comparison (UCS vs. A* vs. DFBB vs. IDA*)",
+        fontsize=12,
+        fontweight="bold",
+        color="#0f172a",
+        y=1.02,
+    )
+    fig.tight_layout()
+    if save_path:
+        os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    return fig
+
+
 def visualize(
     problem: Problem,
     results: dict[str, Result],
@@ -891,3 +1032,98 @@ def visualize(
 
     print(f"Saved visualizations to {route_file} and {playback_file}")
     return {"route_map": route_file, "search_playback": playback_file}
+
+
+def generate_all_visuals(
+    save_dir: str | Path | None = None,
+    show: bool = False,
+) -> dict[str, Path]:
+    """Generate and save all 4 demonstration & report screens into `results/visuals/`."""
+    from ev.informed import astar, ucs
+    from ev.local_search import steepest_ascent_hill_climbing
+    from ev.maps import corridor_map, corridor_problem, generate_sized_map
+    from ev.memory_bounded import dfbb, ida_star
+    from ev.metrics import measure
+
+    out_dir = (
+        Path(save_dir)
+        if save_dir is not None
+        else Path(__file__).resolve().parent.parent / "results" / "visuals"
+    )
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1 & 2. Corridor Route Map and Step-by-Step Search Playback
+    c_prob = corridor_problem()
+    res_astar = measure(astar, c_prob)
+    route_path = out_dir / "route_map_corridor.png"
+    play_path = out_dir / "search_playback_corridor.png"
+
+    fig1 = render_route_map(c_prob, res_astar, save_path=str(route_path), show=show)
+    plt.close(fig1)
+
+    fig2 = render_search_playback(
+        c_prob, res_astar, num_snapshots=4, save_path=str(play_path), show=show
+    )
+    plt.close(fig2)
+
+    # 3. Charger Placement Before-and-After View on Corridor Network
+    rm = corridor_map()
+    rm.chargers.clear()
+    rm.add_charger("Kanchipuram", 25, 20)
+    rm.add_charger("Tiruvannamalai", 25, 20)
+    rm.add_charger("Palamaner", 25, 20)
+    candidates = [
+        n
+        for n in rm.coords
+        if n not in rm.chargers and n not in ("Chennai", "Bengaluru")
+    ]
+    trips = [
+        Trip("Chennai", "Bengaluru", 5),
+        Trip("Bengaluru", "Chennai", 5),
+        Trip("Chennai", "Hosur", 5),
+        Trip("Arakkonam", "Bengaluru", 5),
+        Trip("Chengalpattu", "Kolar", 5),
+        Trip("Tindivanam", "Bengaluru", 5),
+    ]
+    place_prob = ChargerPlacementProblem(
+        road_map=rm,
+        candidates=candidates,
+        num_chargers=4,
+        sample_trips=trips,
+        start_battery=5,
+    )
+    init_sites = place_prob.initial_state(seed=2)
+    hc_res = steepest_ascent_hill_climbing(
+        place_prob, initial_state=init_sites, trace=True, seed=2
+    )
+    place_path = out_dir / "charger_placement_corridor.png"
+    fig3 = render_placement_comparison(
+        place_prob, init_sites, hc_res, save_path=str(place_path), show=show
+    )
+    plt.close(fig3)
+
+    # 4. IDA* & DFBB Memory Comparison across corridor, small, medium, large
+    scenarios = {
+        "corridor": corridor_problem(),
+        "small": generate_sized_map("small").problem(),
+        "medium": generate_sized_map("medium").problem(),
+        "large": generate_sized_map("large").problem(),
+    }
+    solvers = {"UCS": ucs, "A*": astar, "DFBB": dfbb, "IDA*": ida_star}
+    results_by_map: dict[str, dict[str, Result]] = {}
+    for s_name, s_prob in scenarios.items():
+        results_by_map[s_name] = {
+            a_name: measure(solver, s_prob) for a_name, solver in solvers.items()
+        }
+    mem_path = out_dir / "ida_dfbb_memory_comparison.png"
+    fig4 = render_memory_comparison(
+        results_by_map, save_path=str(mem_path), show=show
+    )
+    plt.close(fig4)
+
+    return {
+        "route_map": route_path,
+        "search_playback": play_path,
+        "charger_placement": place_path,
+        "memory_comparison": mem_path,
+    }
