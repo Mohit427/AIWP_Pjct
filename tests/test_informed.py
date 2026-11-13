@@ -71,6 +71,18 @@ class TestInformedSearch(unittest.TestCase):
                     self.assertLessEqual(v0, v1 + 1e-9)
                     self.assertLessEqual(v1, v2 + 1e-9)
 
+    def test_battery_sweep_corridor(self) -> None:
+        """Verify A*(H2) <= A*(H1) <= A*(H0) across feasible battery capacities on corridor."""
+        for cap in (4, 6, 8, 10):
+            prob = corridor_problem(start_battery=min(6, cap), battery_cap=cap)
+            r_ucs = ucs(prob)
+            r_h0 = astar(prob, heuristic="H0")
+            r_h1 = astar(prob, heuristic="H1")
+            r_h2 = astar(prob, heuristic="H2")
+            self.assertEqual(r_ucs.total_minutes, r_h2.total_minutes)
+            self.assertLessEqual(r_h2.nodes_expanded, r_h1.nodes_expanded)
+            self.assertLessEqual(r_h1.nodes_expanded, r_h0.nodes_expanded)
+
 class TestChecker(unittest.TestCase):
     """Verify ATK's consistency, admissibility, and cost-agreement checker."""
 
