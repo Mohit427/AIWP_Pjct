@@ -156,7 +156,7 @@ def check_admissibility_exact(problem: Problem) -> list[str]:
 def _discover_memory_bounded_solvers() -> dict[str, Solver]:
     """Auto-discover Rohiit's IDA* and DFBB solvers once pushed to the repo."""
     discovered: dict[str, Solver] = {}
-    module_candidates = ("ev.memory_bounded", "ev.rohiit", "ev.ida_dfbb")
+    module_candidates = ("ev.more_informed", "ev.memory_bounded", "ev.rohiit", "ev.ida_dfbb")
     for mod_name in module_candidates:
         try:
             mod = __import__(mod_name, fromlist=["ALGORITHMS"])
@@ -243,28 +243,27 @@ def verify_all_standard_maps(
     ]
 
     all_ok = True
-    print("=" * 74)
-    print("ATK HEURISTIC CONSISTENCY & OPTIMAL COST-AGREEMENT CHECKER")
-    print("=" * 74)
+    print("=" * 92)
+    print("ATK HEURISTIC CONSISTENCY & OPTIMAL COST-AGREEMENT CHECKER (UCS, A*, IDA*, DFBB)")
+    print("=" * 92)
 
     for prob in problems:
         c_rep = check_heuristics(prob)
         a_rep = check_cost_agreement(prob, extra_solvers=extra_solvers)
-        dom_ok = (
-            a_rep.expansions_by_algorithm["A*(H2)"]
-            <= a_rep.expansions_by_algorithm["A*(H1)"]
-            <= a_rep.expansions_by_algorithm["A*(H0)"]
-        )
+        exp = a_rep.expansions_by_algorithm
+        dom_ok = exp["A*(H2)"] <= exp["A*(H1)"] <= exp["A*(H0)"]
+
+        extra_str = ""
+        if "IDA*" in exp and "DFBB" in exp:
+            extra_str = f" | IDA*/DFBB: {exp['IDA*']:>5}/{exp['DFBB']:>4}"
 
         status_tag = "PASS" if (c_rep.passed and a_rep.agreed and dom_ok) else "FAIL"
         print(
             f"[{status_tag}] Map: {prob.road_map.name:<18} | "
             f"States: {c_rep.states_checked:>4} | Edges: {c_rep.transitions_checked:>5} | "
-            f"Opt Cost: {str(a_rep.optimal_minutes):>4}m | "
-            f"Expanded (H0/H1/H2): "
-            f"{a_rep.expansions_by_algorithm['A*(H0)']}/"
-            f"{a_rep.expansions_by_algorithm['A*(H1)']}/"
-            f"{a_rep.expansions_by_algorithm['A*(H2)']}"
+            f"Opt: {str(a_rep.optimal_minutes):>4}m | "
+            f"A*(H0/H1/H2): {exp['A*(H0)']:>3}/{exp['A*(H1)']:>3}/{exp['A*(H2)']:>3}"
+            f"{extra_str}"
         )
 
         if not c_rep.passed:
@@ -284,7 +283,7 @@ def verify_all_standard_maps(
             for v in adm_violations[:5]:
                 print(f"   ! Admissibility violation: {v}")
 
-    print("=" * 74)
+    print("=" * 92)
     return all_ok
 
 

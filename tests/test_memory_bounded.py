@@ -8,7 +8,20 @@ import os
 import tempfile
 import unittest
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+    from ev.viz import (
+        format_placement_terminal,
+        format_playback_terminal,
+        format_route_terminal,
+        reconstruct_route,
+        render_memory_comparison,
+        render_placement_comparison,
+        visualize,
+    )
+    HAS_MATPLOTLIB = True
+except ModuleNotFoundError:
+    HAS_MATPLOTLIB = False
 
 from ev.charger_placement import (
     ChargerPlacementProblem,
@@ -22,18 +35,6 @@ from ev.memory_bounded import dfbb, dfbb_unbounded, ida_star, random_walk
 from ev.metrics import CUTOFF, NO_SOLUTION, SOLVED, measure
 from ev.model import Problem, RoadMap
 from ev.uninformed import bfs, dfs, iddfs
-from ev.viz import (
-    format_placement_terminal,
-    format_playback_terminal,
-    format_route_terminal,
-    generate_all_visuals,
-    reconstruct_route,
-    render_memory_comparison,
-    render_placement_comparison,
-    render_route_map,
-    render_search_playback,
-    visualize,
-)
 import main as main_mod
 
 
@@ -180,6 +181,13 @@ class TestEdgeCases(unittest.TestCase):
 class TestVisualizationAndMainIntegration(unittest.TestCase):
     """Test route map, playback, placement comparison, memory comparison, and main.py wiring."""
 
+    def test_main_available_algorithms(self) -> None:
+        """Verify main.py discovers all 8 route-finding algorithms."""
+        algos = main_mod.available_algorithms()
+        for name in ("BFS", "DFS", "IDDFS", "UCS", "Greedy", "A*", "IDA*", "DFBB"):
+            self.assertIn(name, algos)
+
+    @unittest.skipUnless(HAS_MATPLOTLIB, "matplotlib not installed")
     def test_route_map_playback_and_memory_renderers(self) -> None:
         """Verify reconstruct_route, terminal formatters, and matplotlib PNG rendering."""
         prob = corridor_problem()
@@ -218,12 +226,9 @@ class TestVisualizationAndMainIntegration(unittest.TestCase):
             self.assertTrue(os.path.isfile(mem_png))
             self.assertGreater(os.path.getsize(mem_png), 1000)
 
+    @unittest.skipUnless(HAS_MATPLOTLIB, "matplotlib not installed")
     def test_placement_comparison_and_main_integration(self) -> None:
-        """Verify charger placement comparison renderer and main.py available_algorithms()."""
-        algos = main_mod.available_algorithms()
-        for name in ("BFS", "DFS", "IDDFS", "UCS", "Greedy", "A*", "IDA*", "DFBB"):
-            self.assertIn(name, algos)
-
+        """Verify charger placement comparison renderer."""
         rm = corridor_map()
         candidates = [n for n in rm.coords if n not in rm.chargers][:8]
         trips = [Trip("Chennai", "Bengaluru", 6), Trip("Arakkonam", "Hosur", 5)]
