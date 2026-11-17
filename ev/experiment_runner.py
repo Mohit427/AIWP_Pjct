@@ -13,8 +13,6 @@ import time
 from dataclasses import dataclass, asdict
 from typing import Callable
 
-import pandas as pd
-
 from ev.charger_placement import (
     ChargerPlacementProblem,
     Trip,
@@ -447,7 +445,14 @@ def load_results(filename: str) -> dict:
 
 
 def results_to_dataframe(results: list[ExperimentResult]) -> pd.DataFrame:
-    """Convert all experiment results to a single pandas DataFrame for analysis."""
+    """Convert all experiment results to a single pandas DataFrame for analysis.
+
+    pandas is imported here, not at the top, because it is not in the standard
+    library: importing it at module level made every import of the ev package
+    fail on machines without it.
+    """
+    import pandas as pd
+
     rows = []
     for exp in results:
         for stats in exp.algorithm_stats:
