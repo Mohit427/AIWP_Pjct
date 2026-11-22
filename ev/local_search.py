@@ -1,11 +1,3 @@
-"""Local search algorithms for charger placement optimization.
-
-Implements:
-- Steepest-Ascent Hill Climbing
-- First-Choice Hill Climbing
-- Random-Restart Hill Climbing
-- Simulated Annealing (exponential and logarithmic cooling)
-"""
 
 from __future__ import annotations
 

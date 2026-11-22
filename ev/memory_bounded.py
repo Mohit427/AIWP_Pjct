@@ -1,13 +1,4 @@
-"""Memory-bounded informed search (IDA*, DFBB) and Random Walk baseline.
-
-Implements:
-  - Iterative Deepening A* (IDA*) with integer f-contours and admissible
-    Bellman subtree bound learning
-  - Depth-First Branch and Bound (DFBB), testable with and without an initial
-    upper bound
-  - Random Walk baseline supporting both route-finding (`Problem` -> `Result`)
-    and charger placement (`ChargerPlacementProblem` -> `LocalSearchResult`)
-
+"""
 All route-finding solvers follow the CONTRACT.md signature:
     solve(problem, trace=False, max_expansions=2_000_000, time_limit_s=30) -> Result
 """

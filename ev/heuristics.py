@@ -1,45 +1,4 @@
 """Heuristics H0, H1, and H2 for informed search (UCS, Greedy, A*, IDA*, DFBB).
-
-Author: ATK
-
-Mathematical Formulation & Proofs
----------------------------------
-Let s = (u, b) be the current state at node u with integer battery b, and let
-g = destination. Let d_SL(u, g) be the Euclidean straight-line distance (km).
-
-Precomputed map-wide constants (GraphBounds):
-  - v_max = max_{(x,y) in E} (road.km / road.minutes)
-  - eta_max = max_{(x,y) in E} (road.km / road.battery_cost)
-  - tau_min = min_{c in Chargers} (c.minutes_per_unit)
-
-1. H0(s) = 0
-   - Admissible & Consistent: 0 <= h*(s) and 0 <= cost(s, a, s') + 0 since all
-     action costs are >= 1 minute. With H0, A* is identical to UCS.
-
-2. H1(s) = d_SL(u, g) / v_max
-   - Admissibility: RoadMap.add_road enforces road.km >= d_SL(x, y) on every
-     edge. By the Euclidean triangle inequality, any path from u to g has total
-     road length L >= d_SL(u, g). Since no road is faster than v_max, driving
-     time alone is at least L / v_max >= d_SL(u, g) / v_max.
-   - Consistency:
-     * Drive (u -> v): H1(u, b) - H1(v, b') = (d_SL(u, g) - d_SL(v, g)) / v_max
-       <= d_SL(u, v) / v_max <= road.km / v_max <= road.minutes.
-     * Charge at u: location is unchanged, so H1(u, b) - H1(u, b+1) = 0 <= tau(u).
-
-3. H2(s) = H1(s) + tau_min * max(0, d_SL(u, g) / eta_max - b)
-   - Admissibility: Covering distance L >= d_SL(u, g) consumes at least
-     L / eta_max >= d_SL(u, g) / eta_max battery units. With current battery b,
-     at least max(0, d_SL(u, g) / eta_max - b) units must be charged along the
-     trip, each taking at least tau_min minutes. Since driving and charging
-     times are disjoint action costs, H1(s) + min_charge_time <= h*(s).
-   - Consistency:
-     * Drive (u -> v) costing db = b - b' units: Since db >= road.km / eta_max
-       >= (d_SL(u, g) - d_SL(v, g)) / eta_max, the energy deficit at v is at
-       least the energy deficit at u. Thus the forced-charge term never
-       decreases on a drive step, and H2(s) - H2(s') <= H1(s) - H1(s') <= road.minutes.
-     * Charge at u (b' = b + 1): H1 is unchanged, and the energy deficit drops
-       by at most 1 unit, reducing H2 by at most tau_min <= charger.minutes_per_unit.
-   - Dominance: H2(s) >= H1(s) >= H0(s) for all states s.
 """
 
 from __future__ import annotations

@@ -1,8 +1,4 @@
 """Experiments, heuristic ablation, battery sweep, and master 8-algorithm comparison tables.
-
-Author: ATK
-Deliverable: Wed 11 Nov & Thu 12 Nov
-
 Runs all route-finding experiments using Mohit's `measure()` harness, prints
 clean tables for `main.py` and the final report, and saves `results/informed_experiments.csv`
 and `results/informed_summary.txt` on the exact same 90 seeded trips used by

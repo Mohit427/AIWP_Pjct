@@ -1,10 +1,5 @@
 """Informed and optimal cost search: Uniform Cost Search, Greedy Best-First, and A*.
 
-Author: ATK
-
-All solvers follow the standard project signature:
-    solve(problem, trace=False, max_expansions=2_000_000, time_limit_s=30) -> Result
-
 Evaluation functions f(s):
   - UCS:    f(s) = g(s)            (path cost in minutes from start)
   - Greedy: f(s) = h(s)            (estimated minutes remaining to destination)

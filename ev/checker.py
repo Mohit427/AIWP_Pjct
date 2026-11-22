@@ -1,8 +1,4 @@
 """Heuristic consistency, admissibility, and optimal-cost agreement checker.
-
-Author: ATK
-Deliverable: Tue 10 Nov / Wed 11 Nov
-
 Verifies:
 1. Consistency: h(s) <= step_cost(s, a, s') + h(s') across every state and
    every legal action (both 'drive' and 'charge') for H0, H1, and H2.

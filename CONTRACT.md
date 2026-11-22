@@ -103,8 +103,8 @@ def my_search(problem, trace=False, max_expansions=2_000_000, time_limit_s=30):
     # ... add to the frontier ...
     run.update_frontier(len(frontier))
     # To finish:
-    return run.solved(problem, path)   # path is a list of Action
-    return run.no_solution()           # the search proved there is no path
+    return run.solved(problem, path)  
+    return run.no_solution()        
 ```
 
 Rules:
